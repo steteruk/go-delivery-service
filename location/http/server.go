@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func Run() error {
+func ServerRun() error {
 
 	port := ":8888"
 	if os.Getenv("HTTP_PORT") != "" {
