@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
+	"github.com/steteruk/go-delivery-service/storage/redis"
 	"io"
 	"log"
 	"net/http"
@@ -22,20 +24,23 @@ type ResponseMessage struct {
 }
 
 type LocationHandler struct {
-	validate *validator.Validate
+	validate          *validator.Validate
+	courierRepository CourierRepository
 }
 
 func NewLocationHandler() *LocationHandler {
 	return &LocationHandler{
-		validate: validator.New(),
+		validate:          validator.New(),
+		courierRepository: redis.NewCourierRepository(),
 	}
+}
+
+type CourierRepository interface {
+	SaveLatestCourierGeoPosition(ctx context.Context, courierID string, latitude, longitude float64) error
 }
 
 func (h *LocationHandler) CourierHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
-	id := mux.Vars(r)["courier_id"]
-	fmt.Printf(" courier_id = %s\n", id)
 
 	locationPayload, response := h.decodePayload(r.Body)
 	if response != nil {
@@ -45,6 +50,15 @@ func (h *LocationHandler) CourierHandler(w http.ResponseWriter, r *http.Request)
 
 	if isValid, response := h.validatePayload(locationPayload); !isValid {
 		h.createErrorResponse(response, w)
+		return
+	}
+
+	id := mux.Vars(r)["courier_id"]
+	ctx := r.Context()
+	err := h.courierRepository.SaveLatestCourierGeoPosition(ctx, id, locationPayload.Latitude, locationPayload.Longitude)
+	if err != nil {
+		log.Printf("Error saving geodata to storage: %v\n", err)
+		h.createErrorResponse(h.getCourierGeoPositionErrorResponse(), w)
 		return
 	}
 
@@ -66,6 +80,13 @@ func (h *LocationHandler) validatePayload(locationPayload *LocationPayload) (isV
 	}
 
 	return true, nil
+}
+
+func (h *LocationHandler) getCourierGeoPositionErrorResponse() (response *ResponseMessage) {
+	return &ResponseMessage{
+		Status:  "Error",
+		Message: fmt.Sprintf("Error saving geodata to storage."),
+	}
 }
 
 func (h *LocationHandler) decodePayload(payload io.ReadCloser) (locationPayload *LocationPayload, response *ResponseMessage) {

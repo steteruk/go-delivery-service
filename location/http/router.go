@@ -20,7 +20,6 @@ func NewRouter() *Router {
 
 func (r *Router) Init() *mux.Router {
 	newRouter := mux.NewRouter()
-	fmt.Println(fmt.Sprintf(r.url, r.uuidValidationRule))
 	newRouter.HandleFunc(fmt.Sprintf(r.url, r.uuidValidationRule), handler.NewLocationHandler().CourierHandler)
 	newRouter.Methods("POST")
 
