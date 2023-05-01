@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
-	"github.com/steteruk/go-delivery-service/storage/redis"
 	"io"
 	"log"
 	"net/http"
@@ -28,10 +27,10 @@ type LocationHandler struct {
 	courierRepository CourierRepository
 }
 
-func NewLocationHandler() *LocationHandler {
+func NewLocationHandler(courierRepository CourierRepository) *LocationHandler {
 	return &LocationHandler{
 		validate:          validator.New(),
-		courierRepository: redis.NewCourierRepository(),
+		courierRepository: courierRepository,
 	}
 }
 

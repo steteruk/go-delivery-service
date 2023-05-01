@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
-	"github.com/redis/go-redis/v9"
+	coreRedis "github.com/redis/go-redis/v9"
 	"os"
 	"strconv"
 )
@@ -11,7 +11,7 @@ import (
 const courierLatestCordsKey = "courier_latest_cord"
 
 type CourierRepository struct {
-	client *redis.Client
+	client *coreRedis.Client
 }
 
 func NewCourierRepository() *CourierRepository {
@@ -26,7 +26,7 @@ func NewCourierRepository() *CourierRepository {
 		dbNumber = 0
 	}
 
-	rdb := redis.NewClient(&redis.Options{
+	rdb := coreRedis.NewClient(&coreRedis.Options{
 		Addr: addr,
 		DB:   dbNumber,
 	})
@@ -35,10 +35,10 @@ func NewCourierRepository() *CourierRepository {
 	}
 }
 
-func (a *CourierRepository) SaveLatestCourierGeoPosition(ctx context.Context, courierID string, latitude, longitude float64) error {
-	l := &redis.GeoLocation{Longitude: longitude, Latitude: latitude, Name: courierID}
+func (r *CourierRepository) SaveLatestCourierGeoPosition(ctx context.Context, courierID string, latitude, longitude float64) error {
+	l := &coreRedis.GeoLocation{Longitude: longitude, Latitude: latitude, Name: courierID}
 
-	if err := a.client.GeoAdd(ctx, courierLatestCordsKey, l).Err(); err != nil {
+	if err := r.client.GeoAdd(ctx, courierLatestCordsKey, l).Err(); err != nil {
 		return fmt.Errorf("failed to add courier geo location into redis: %w", err)
 	}
 

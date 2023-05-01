@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/steteruk/go-delivery-service/location/http/handler"
+	"github.com/steteruk/go-delivery-service/storage/redis"
 )
 
 type Router struct {
@@ -20,7 +21,7 @@ func NewRouter() *Router {
 
 func (r *Router) Init() *mux.Router {
 	newRouter := mux.NewRouter()
-	newRouter.HandleFunc(fmt.Sprintf(r.url, r.uuidValidationRule), handler.NewLocationHandler().CourierHandler)
+	newRouter.HandleFunc(fmt.Sprintf(r.url, r.uuidValidationRule), handler.NewLocationHandler(redis.NewCourierRepository()).CourierHandler)
 	newRouter.Methods("POST")
 
 	return newRouter
