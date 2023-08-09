@@ -1,21 +1,18 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
+	"github.com/steteruk/go-delivery-service/location/domain"
 	"io"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
-
-type LocationPayload struct {
-	Latitude  float64 `json:"latitude" validate:"required,latitude"`
-	Longitude float64 `json:"longitude" validate:"required,longitude"`
-}
 
 type ResponseMessage struct {
 	Status  string `json:"status"`
@@ -23,81 +20,72 @@ type ResponseMessage struct {
 }
 
 type LocationHandler struct {
-	validate          *validator.Validate
-	courierRepository CourierRepository
+	courierService domain.CourierLocationServiceInterface
+	validator      *validator.Validate
 }
 
-func NewLocationHandler(courierRepository CourierRepository) *LocationHandler {
+func NewLocationHandler(courierService domain.CourierLocationServiceInterface) *LocationHandler {
 	return &LocationHandler{
-		validate:          validator.New(),
-		courierRepository: courierRepository,
+		courierService: courierService,
+		validator:      validator.New(),
 	}
-}
-
-type CourierRepository interface {
-	SaveLatestCourierGeoPosition(ctx context.Context, courierID string, latitude, longitude float64) error
 }
 
 func (h *LocationHandler) CourierHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	locationPayload, response := h.decodePayload(r.Body)
+	courierLocation, response := h.decodePayload(r.Body)
 	if response != nil {
 		h.createErrorResponse(response, w)
 		return
 	}
 
-	if isValid, response := h.validatePayload(locationPayload); !isValid {
-		h.createErrorResponse(response, w)
+	courierLocation.CreatedAt = time.Now()
+	courierLocation.CourierID = mux.Vars(r)["courier_id"]
+	if err := h.validateCourierLocation(courierLocation); err != nil {
+		log.Printf("Error validate geodata: %v\n", err)
+		h.createErrorResponse(prepareErrorResponse(err.Error()), w)
 		return
 	}
 
-	id := mux.Vars(r)["courier_id"]
-	ctx := r.Context()
-	err := h.courierRepository.SaveLatestCourierGeoPosition(ctx, id, locationPayload.Latitude, locationPayload.Longitude)
+	err := h.courierService.SaveLatestCourierLocation(r.Context(), courierLocation)
 	if err != nil {
 		log.Printf("Error saving geodata to storage: %v\n", err)
-		h.createErrorResponse(h.getCourierGeoPositionErrorResponse(), w)
+		h.createErrorResponse(prepareErrorResponse("Error saving geodata."), w)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *LocationHandler) validatePayload(locationPayload *LocationPayload) (isValid bool, response *ResponseMessage) {
-	if err := h.validate.Struct(locationPayload); err != nil {
-		errorMessage := ""
-		for _, errStruct := range err.(validator.ValidationErrors) {
-			message := fmt.Sprintf("Incorrect Value %s %f", errStruct.StructField(), errStruct.Value())
-			errorMessage += message + ","
-		}
-		errorMessage = strings.Trim(errorMessage, ",")
-		return false, &ResponseMessage{
-			Status:  "Error",
-			Message: errorMessage,
-		}
-	}
+func (h *LocationHandler) validateCourierLocation(courierLocation *domain.CourierLocation) error {
+	err := h.validator.Struct(courierLocation)
 
-	return true, nil
+	if err == nil {
+		return nil
+	}
+	errorMessage := ""
+	for _, errStruct := range err.(validator.ValidationErrors) {
+		message := fmt.Sprintf("Incorrect Value %s %f", errStruct.StructField(), errStruct.Value())
+		errorMessage += message + ","
+	}
+	errorMessage = strings.Trim(errorMessage, ",")
+	return errors.New(errorMessage)
 }
 
-func (h *LocationHandler) getCourierGeoPositionErrorResponse() (response *ResponseMessage) {
+func prepareErrorResponse(massage string) (response *ResponseMessage) {
 	return &ResponseMessage{
 		Status:  "Error",
-		Message: fmt.Sprintf("Error saving geodata to storage."),
+		Message: fmt.Sprintf(massage),
 	}
 }
 
-func (h *LocationHandler) decodePayload(payload io.ReadCloser) (locationPayload *LocationPayload, response *ResponseMessage) {
-	if err := json.NewDecoder(payload).Decode(&locationPayload); err != nil {
-
-		return nil, &ResponseMessage{
-			Status:  "Error",
-			Message: fmt.Sprintf("Request body does not match json format %v", err),
-		}
+func (h *LocationHandler) decodePayload(payload io.ReadCloser) (courierLocation *domain.CourierLocation, response *ResponseMessage) {
+	if err := json.NewDecoder(payload).Decode(&courierLocation); err != nil {
+		return nil, prepareErrorResponse("Request body does not match json format.")
 	}
 
-	return locationPayload, nil
+	return courierLocation, nil
 }
 
 func (h *LocationHandler) createErrorResponse(response *ResponseMessage, w http.ResponseWriter) {

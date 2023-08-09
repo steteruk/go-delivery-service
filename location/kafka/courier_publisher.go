@@ -1,40 +1,45 @@
 package kafka
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/steteruk/go-delivery-service/location/domain"
 )
 
 const topic = "latest_position_courier"
 const partition = 0
 
 type CourierPublisher struct {
-	producer sarama.AsyncProducer
+	publisher sarama.AsyncProducer
 }
 
-func NewCourierPublisher() (*CourierPublisher, error) {
-	brokers := []string{"localhost:9201"}
+func NewCourierPublisher(addr string) (*CourierPublisher, error) {
+	brokers := []string{addr}
 	config := sarama.NewConfig()
-	config.Producer.Partitioner = sarama.NewRandomPartitioner
-	config.Producer.RequiredAcks = sarama.WaitForAll
+	config.Producer.Partitioner = sarama.NewManualPartitioner
+	config.Producer.RequiredAcks = sarama.WaitForLocal
 	producer, err := sarama.NewAsyncProducer(brokers, config)
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create a new sarama async producer: %w", err)
 	}
-	return &CourierPublisher{
-		producer: producer,
-	}, nil
+
+	return &CourierPublisher{publisher: producer}, nil
 }
 
-func (cp *CourierPublisher) Publish(message string) error {
-	cp.producer.Input() <- &sarama.ProducerMessage{
-		Topic:     topic,
-		Partition: partition,
-		Value:     sarama.ByteEncoder(message),
+func (cp *CourierPublisher) PublishLatestCourierGeoPosition(ctx context.Context, courierLocation *domain.CourierLocation) error {
+	message, err := json.Marshal(courierLocation)
+	if err != nil {
+		return fmt.Errorf("failed to marshal courier location before sending Kafka event: %w", err)
 	}
-
-	if err := cp.producer.CommitTxn(); err != nil {
-		return err
+	prepareMessage := sarama.ProducerMessage{
+		Topic: topic,
+		//Partition: partition,
+		Value: sarama.StringEncoder(message),
 	}
+	cp.publisher.Input() <- &prepareMessage
 
 	return nil
 }
