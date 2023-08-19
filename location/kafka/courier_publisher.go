@@ -9,7 +9,6 @@ import (
 )
 
 const topic = "latest_position_courier"
-const partition = 0
 
 type CourierPublisher struct {
 	publisher sarama.AsyncProducer
@@ -34,12 +33,10 @@ func (cp *CourierPublisher) PublishLatestCourierGeoPosition(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to marshal courier location before sending Kafka event: %w", err)
 	}
-	prepareMessage := sarama.ProducerMessage{
+	prepareMessage := &sarama.ProducerMessage{
 		Topic: topic,
-		//Partition: partition,
 		Value: sarama.StringEncoder(message),
 	}
-	cp.publisher.Input() <- &prepareMessage
-
+	cp.publisher.Input() <- prepareMessage
 	return nil
 }

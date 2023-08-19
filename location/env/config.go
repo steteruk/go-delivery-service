@@ -7,7 +7,7 @@ import (
 type Config struct {
 	AddrKafka     string `env:"KAFKA_BROKERS" envDefault:"localhost:9092"`
 	AddrRedis     string `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
-	PortServer    string `env:"PORT_SERVER" envDefault:"8081"`
+	PortServer    string `env:"PORT_SERVER" envDefault:":8888"`
 	NumberDbRedis int    `env:"NUMBER_DB_REDIS" envDefault:"0"`
 }
 

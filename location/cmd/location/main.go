@@ -27,7 +27,7 @@ func main() {
 
 	locationHandler := handler.NewLocationHandler(courierService)
 	locationRouter := http.NewRouter(locationHandler.CourierHandler).Init()
-	if err := http.ServerRun(locationRouter); err != nil {
+	if err := http.ServerRun(locationRouter, config.PortServer); err != nil {
 		log.Printf("Failed to run http server: %v", err)
 	}
 }
