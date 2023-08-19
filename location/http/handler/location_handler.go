@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +32,10 @@ func NewLocationHandler(courierService domain.CourierLocationServiceInterface) *
 	}
 }
 
+type CourierRepository interface {
+	SaveLatestCourierGeoPosition(ctx context.Context, courierID string, latitude, longitude float64) error
+}
+
 func (h *LocationHandler) CourierHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -52,6 +57,15 @@ func (h *LocationHandler) CourierHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		log.Printf("Error saving geodata to storage: %v\n", err)
 		h.createErrorResponse(prepareErrorResponse("Error saving geodata."), w)
+		return
+	}
+
+	id := mux.Vars(r)["courier_id"]
+	ctx := r.Context()
+	err := h.courierRepository.SaveLatestCourierGeoPosition(ctx, id, locationPayload.Latitude, locationPayload.Longitude)
+	if err != nil {
+		log.Printf("Error saving geodata to storage: %v\n", err)
+		h.createErrorResponse(h.getCourierGeoPositionErrorResponse(), w)
 		return
 	}
 
