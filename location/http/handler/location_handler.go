@@ -53,19 +53,11 @@ func (h *LocationHandler) CourierHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err := h.courierService.SaveLatestCourierLocation(r.Context(), courierLocation)
+	ctx := r.Context()
+	err := h.courierService.SaveLatestCourierLocation(ctx, courierLocation)
 	if err != nil {
 		log.Printf("Error saving geodata to storage: %v\n", err)
 		h.createErrorResponse(prepareErrorResponse("Error saving geodata."), w)
-		return
-	}
-
-	id := mux.Vars(r)["courier_id"]
-	ctx := r.Context()
-	err := h.courierRepository.SaveLatestCourierGeoPosition(ctx, id, locationPayload.Latitude, locationPayload.Longitude)
-	if err != nil {
-		log.Printf("Error saving geodata to storage: %v\n", err)
-		h.createErrorResponse(h.getCourierGeoPositionErrorResponse(), w)
 		return
 	}
 
