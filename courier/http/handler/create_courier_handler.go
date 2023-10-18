@@ -105,7 +105,6 @@ func (h *CourierHandler) createErrorResponse(massage string, w http.ResponseWrit
 }
 
 func (h *CourierHandler) createSuccessResponse(massage string, courier *domain.Courier, w http.ResponseWriter) {
-	w.WriteHeader(http.StatusBadRequest)
 	responseMsg := &SuccessResponseMessage{
 		Status:  "Success",
 		Message: fmt.Sprintf(massage),
