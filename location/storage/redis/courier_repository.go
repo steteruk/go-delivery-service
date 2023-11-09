@@ -13,13 +13,10 @@ type CourierRepository struct {
 	client *coreRedis.Client
 }
 
-func NewCourierRepository(addr string, dbNumber int) *CourierRepository {
-	rdb := coreRedis.NewClient(&coreRedis.Options{
-		Addr: addr,
-		DB:   dbNumber,
-	})
+func NewCourierRepository(client *coreRedis.Client) *CourierRepository {
+
 	return &CourierRepository{
-		client: rdb,
+		client: client,
 	}
 }
 

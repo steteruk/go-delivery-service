@@ -2,9 +2,12 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
+
+var ErrCourierLocationNotFound = errors.New("courier location was not found")
 
 type CourierLocationServiceInterface interface {
 	SaveLatestCourierLocation(
@@ -20,6 +23,11 @@ type CourierService struct {
 
 type CourierLocationRepositoryInterface interface {
 	SaveLatestCourierGeoPosition(ctx context.Context, courierLocation *CourierLocation) error
+}
+
+type CourierRepositoryInterface interface {
+	CourierLocationRepositoryInterface
+	GetLatestPositionCourierById(ctx context.Context, courierID string) (*CourierLocation, error)
 }
 
 type CourierLocationPublisherInterface interface {

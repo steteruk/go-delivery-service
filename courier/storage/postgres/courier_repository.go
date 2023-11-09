@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/steteruk/go-delivery-service/courier/domain"
 )
@@ -26,7 +27,7 @@ func (r *CourierRepository) SaveNewCourier(ctx context.Context, courier *domain.
 	)
 
 	newCourier := domain.Courier{}
-	err := row.Scan(&newCourier.ID, &newCourier.FirstName, &newCourier.IsAvailable)
+	err := row.Scan(&newCourier.Id, &newCourier.FirstName, &newCourier.IsAvailable)
 
 	if err != nil {
 		fmt.Println(err)
@@ -34,4 +35,25 @@ func (r *CourierRepository) SaveNewCourier(ctx context.Context, courier *domain.
 	}
 
 	return &newCourier, nil
+}
+
+func (r *CourierRepository) GetCourierById(ctx context.Context, courierId string) (*domain.Courier, error) {
+	sqlStatement := "SELECT * FROM courier WHERE courier_id = $1"
+	row := r.client.QueryRowContext(
+		ctx,
+		sqlStatement,
+		courierId,
+	)
+
+	courier := domain.Courier{}
+	err := row.Scan(&courier.Id, &courier.FirstName, &courier.IsAvailable)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrCourierNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &courier, nil
 }

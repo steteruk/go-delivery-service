@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
+	"github.com/gorilla/mux"
 	"github.com/steteruk/go-delivery-service/courier/domain"
 	"io"
 	"log"
@@ -24,22 +25,26 @@ type SuccessResponseMessage struct {
 }
 
 type CourierHandler struct {
-	courierRepo domain.CourierRepositoryInterface
-	validator   *validator.Validate
+	courierService domain.CourierServiceInterface
+	validator      *validator.Validate
 }
 
 type CourierPayload struct {
 	Firstname string `json:"firstname" validate:"required,lte=40"`
 }
 
-func NewCourierHandler(courierService domain.CourierRepositoryInterface) *CourierHandler {
+type GetCourierPayload struct {
+	CourierId string `json:"courier_id" validate:"required,uuid"`
+}
+
+func NewCourierHandler(courierService domain.CourierServiceInterface) *CourierHandler {
 	return &CourierHandler{
-		courierRepo: courierService,
-		validator:   validator.New(),
+		courierService: courierService,
+		validator:      validator.New(),
 	}
 }
 
-func (h *CourierHandler) CourierHandler(w http.ResponseWriter, r *http.Request) {
+func (h *CourierHandler) SaveNewCourierHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	courierPayload, err := h.decodePayload(r.Body)
@@ -49,7 +54,7 @@ func (h *CourierHandler) CourierHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err = h.validateCourier(courierPayload); err != nil {
+	if err = h.validatePayload(courierPayload); err != nil {
 		log.Printf("Error validate courier: %v\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		h.createErrorResponse(err.Error(), w)
@@ -57,7 +62,7 @@ func (h *CourierHandler) CourierHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	courier := &domain.Courier{FirstName: courierPayload.Firstname}
 	ctx := r.Context()
-	courier, err = h.courierRepo.SaveNewCourier(ctx, courier)
+	courier, err = h.courierService.SaveNewCourier(ctx, courier)
 	if err != nil {
 		log.Printf("Error saving courier to storage: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -69,7 +74,7 @@ func (h *CourierHandler) CourierHandler(w http.ResponseWriter, r *http.Request) 
 	h.createSuccessResponse("New courier created.", courier, w)
 }
 
-func (h *CourierHandler) validateCourier(payload *CourierPayload) error {
+func (h *CourierHandler) validatePayload(payload any) error {
 	err := h.validator.Struct(payload)
 
 	if err == nil {
@@ -114,4 +119,35 @@ func (h *CourierHandler) createSuccessResponse(massage string, courier *domain.C
 	if err != nil {
 		log.Printf("Failed to encode json response: %v\n", err)
 	}
+}
+
+func (h *CourierHandler) GetCourierHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var getCourierPayload GetCourierPayload
+	getCourierPayload.CourierId = mux.Vars(r)["courier_id"]
+	if err := h.validatePayload(getCourierPayload); err != nil {
+		log.Printf("Error validate courier: %v\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		h.createErrorResponse(err.Error(), w)
+		return
+	}
+	ctx := r.Context()
+
+	courier, err := h.courierService.GetCourierWithLatestPosition(ctx, getCourierPayload.CourierId)
+	if err != nil {
+		log.Printf("Error getting courier: %v\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		h.createErrorResponse("Error getting courier.", w)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(courier)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+
+		log.Printf("failed to encode json response: %v\n", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
