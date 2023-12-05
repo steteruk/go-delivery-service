@@ -31,7 +31,7 @@ type CourierRepositoryInterface interface {
 }
 
 type CourierLocationPublisherInterface interface {
-	PublishLatestCourierGeoPosition(ctx context.Context, courierLocation *CourierLocation) error
+	PublishLatestCourierGeoPosition(courierLocation *CourierLocation) error
 }
 
 func NewCourierService(repo CourierLocationRepositoryInterface, publisher CourierLocationPublisherInterface) *CourierService {
@@ -42,10 +42,10 @@ func NewCourierService(repo CourierLocationRepositoryInterface, publisher Courie
 }
 
 type CourierLocation struct {
-	CourierID string    `json:"courier_id" validate:"required,uuid"`
-	Latitude  float64   `json:"latitude" validate:"required,latitude"`
-	Longitude float64   `json:"longitude" validate:"required,longitude"`
-	CreatedAt time.Time `json:"created_at" validate:"required"`
+	CourierID string    `json:"courier_id"`
+	Latitude  float64   `json:"latitude"`
+	Longitude float64   `json:"longitude"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (cs *CourierService) SaveLatestCourierLocation(ctx context.Context, courierLocation *CourierLocation) error {
@@ -53,7 +53,7 @@ func (cs *CourierService) SaveLatestCourierLocation(ctx context.Context, courier
 	if err != nil {
 		return fmt.Errorf("failed to store latest courier location in the repository: %w", err)
 	}
-	err = cs.courierPublisher.PublishLatestCourierGeoPosition(ctx, courierLocation)
+	err = cs.courierPublisher.PublishLatestCourierGeoPosition(courierLocation)
 
 	if err != nil {
 		return fmt.Errorf("failed to publish latest courier location: %w", err)

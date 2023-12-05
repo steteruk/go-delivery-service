@@ -1,17 +1,11 @@
 package handler
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/steteruk/go-delivery-service/location/domain"
-	"io"
+	pkghttp "github.com/steteruk/go-delivery-service/pkg/http"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -20,84 +14,57 @@ type ResponseMessage struct {
 	Message string `json:"message"`
 }
 
+// LocationPayload imagine payload from http query
+type LocationPayload struct {
+	Latitude  float64 `json:"latitude" validate:"required,latitude"`
+	Longitude float64 `json:"longitude" validate:"required,longitude"`
+}
+
 type LocationHandler struct {
 	courierService domain.CourierLocationServiceInterface
-	validator      *validator.Validate
+	httpHandler    pkghttp.HandlerInterface
 }
 
-func NewLocationHandler(courierService domain.CourierLocationServiceInterface) *LocationHandler {
+func NewLocationHandler(courierService domain.CourierLocationServiceInterface, handler pkghttp.HandlerInterface) *LocationHandler {
 	return &LocationHandler{
 		courierService: courierService,
-		validator:      validator.New(),
+		httpHandler:    handler,
 	}
 }
 
-type CourierRepository interface {
-	SaveLatestCourierGeoPosition(ctx context.Context, courierID string, latitude, longitude float64) error
-}
+func (h *LocationHandler) LatestLocationHandler(w http.ResponseWriter, r *http.Request) {
+	var locationPayload LocationPayload
 
-func (h *LocationHandler) CourierHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	if err := h.httpHandler.DecodePayloadFromJson(r, &locationPayload); err != nil {
+		h.httpHandler.FailResponse(w, err)
 
-	courierLocation, response := h.decodePayload(r.Body)
-	if response != nil {
-		h.createErrorResponse(response, w)
 		return
 	}
 
-	courierLocation.CreatedAt = time.Now()
-	courierLocation.CourierID = mux.Vars(r)["courier_id"]
-	if err := h.validateCourierLocation(courierLocation); err != nil {
-		log.Printf("Error validate geodata: %v\n", err)
-		h.createErrorResponse(prepareErrorResponse(err.Error()), w)
+	if err := h.httpHandler.ValidatePayload(&locationPayload); err != nil {
+		h.httpHandler.FailResponse(w, err)
+
 		return
 	}
 
+	vars := mux.Vars(r)
+	courierId := vars["courier_id"]
 	ctx := r.Context()
+	courierLocation := &domain.CourierLocation{
+		courierId,
+		locationPayload.Latitude,
+		locationPayload.Longitude,
+		time.Now(),
+	}
+
 	err := h.courierService.SaveLatestCourierLocation(ctx, courierLocation)
 	if err != nil {
-		log.Printf("Error saving geodata to storage: %v\n", err)
-		h.createErrorResponse(prepareErrorResponse("Error saving geodata."), w)
+		log.Printf("failed to store latest courier position: %v", err)
+
+		h.httpHandler.FailResponse(w, err)
+
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *LocationHandler) validateCourierLocation(courierLocation *domain.CourierLocation) error {
-	err := h.validator.Struct(courierLocation)
-
-	if err == nil {
-		return nil
-	}
-	errorMessage := ""
-	for _, errStruct := range err.(validator.ValidationErrors) {
-		message := fmt.Sprintf("Incorrect Value %s %f", errStruct.StructField(), errStruct.Value())
-		errorMessage += message + ","
-	}
-	errorMessage = strings.Trim(errorMessage, ",")
-	return errors.New(errorMessage)
-}
-
-func prepareErrorResponse(massage string) (response *ResponseMessage) {
-	return &ResponseMessage{
-		Status:  "Error",
-		Message: fmt.Sprintf(massage),
-	}
-}
-
-func (h *LocationHandler) decodePayload(payload io.ReadCloser) (courierLocation *domain.CourierLocation, response *ResponseMessage) {
-	if err := json.NewDecoder(payload).Decode(&courierLocation); err != nil {
-		return nil, prepareErrorResponse("Request body does not match json format.")
-	}
-
-	return courierLocation, nil
-}
-
-func (h *LocationHandler) createErrorResponse(response *ResponseMessage, w http.ResponseWriter) {
-	w.WriteHeader(http.StatusBadRequest)
-	err := json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Printf("Failed to encode json response: %v\n", err)
-	}
 }

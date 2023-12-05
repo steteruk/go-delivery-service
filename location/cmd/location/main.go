@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 	coreRedis "github.com/redis/go-redis/v9"
 	"github.com/steteruk/go-delivery-service/location/domain"
@@ -14,6 +15,8 @@ import (
 	"github.com/steteruk/go-delivery-service/location/kafka"
 	"github.com/steteruk/go-delivery-service/location/storage/postgres"
 	redisStorage "github.com/steteruk/go-delivery-service/location/storage/redis"
+	pkghttp "github.com/steteruk/go-delivery-service/pkg/http"
+	pkgkafka "github.com/steteruk/go-delivery-service/pkg/kafka"
 	pb "github.com/steteruk/go-delivery-service/proto/generate/location/v1"
 	"google.golang.org/grpc"
 	"log"
@@ -32,11 +35,12 @@ func main() {
 		return
 	}
 
-	publisher, err := kafka.NewCourierPublisher(config.AddrKafka)
+	publisher, err := pkgkafka.NewPublisher(config.AddrKafka, "latest_position_courier")
 	if err != nil {
 		log.Printf("failed to create publisher: %v\n", err)
 		return
 	}
+	courierLocationPublisher := kafka.NewCourierLocationPublisher(publisher)
 
 	clientRedis := coreRedis.NewClient(&coreRedis.Options{
 		Addr: config.AddrRedis,
@@ -45,7 +49,7 @@ func main() {
 	defer clientRedis.Close()
 	repoRedis := redisStorage.NewCourierRepository(clientRedis)
 
-	courierService := domain.NewCourierService(repoRedis, publisher)
+	courierService := domain.NewCourierService(repoRedis, courierLocationPublisher)
 
 	credsDb := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", config.DbUser, config.DbPassword, config.DbName)
 	dbClient, err := sql.Open("postgres", credsDb)
@@ -63,9 +67,20 @@ func main() {
 }
 
 func runHttpServer(ctx context.Context, config env.Config, wg *sync.WaitGroup, courierService domain.CourierLocationServiceInterface) {
-	locationHandler := handler.NewLocationHandler(courierService)
-	locationRouter := http.NewRouter(locationHandler.CourierHandler).Init()
-	http.ServerRun(ctx, locationRouter, config.PortServer)
+	locationHandler := handler.NewLocationHandler(courierService, pkghttp.NewHandler())
+	var courierLocationURL = fmt.Sprintf(
+		"/courier/{courier_id:%s}/location",
+		"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}",
+	)
+	routes := map[string]pkghttp.Route{
+		courierLocationURL: {
+			Handler: locationHandler.LatestLocationHandler,
+			Method:  "POST",
+		},
+	}
+
+	router := pkghttp.NewRoute(routes, mux.NewRouter())
+	http.ServerRun(ctx, router, config.PortServer)
 	wg.Done()
 }
 

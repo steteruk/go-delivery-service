@@ -5,10 +5,10 @@ import (
 )
 
 type Config struct {
-	DbName          string `env:"POSTGRES_DB" envDefault:"courier"`
-	DbPassword      string `env:"POSTGRES_PASSWORD" envDefault:"S3cret"`
-	DbUser          string `env:"POSTGRES_USER" envDefault:"citizix_user"`
-	PortServer      string `env:"PORT_SERVER" envDefault:":8888"`
+	DBName          string `env:"POSTGRES_DB" envDefault:"courier"`
+	DBPassword      string `env:"POSTGRES_PASSWORD" envDefault:"S3cret"`
+	DBUser          string `env:"POSTGRES_USER" envDefault:"citizix_user"`
+	PortServer      string `env:"PORT_SERVER" envDefault:":8877"`
 	CourierGrpcPort string `env:"COURIER_GRPC_PORT" envDefault:":9666"`
 }
 
