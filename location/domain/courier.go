@@ -9,6 +9,7 @@ import (
 
 var ErrCourierLocationNotFound = errors.New("courier location was not found")
 
+// CourierLocationServiceInterface saves courier position in storage.
 type CourierLocationServiceInterface interface {
 	SaveLatestCourierLocation(
 		ctx context.Context,
@@ -16,24 +17,33 @@ type CourierLocationServiceInterface interface {
 	) error
 }
 
+type CourierLocationWorkerPool interface {
+	AddTask(courierLocation *CourierLocation)
+}
+
+// CourierService saves and publishes courier location
 type CourierService struct {
 	courierRepository CourierLocationRepositoryInterface
 	courierPublisher  CourierLocationPublisherInterface
 }
 
+// CourierLocationRepositoryInterface saves latest location position courier in storage.
 type CourierLocationRepositoryInterface interface {
 	SaveLatestCourierGeoPosition(ctx context.Context, courierLocation *CourierLocation) error
 }
 
+// CourierRepositoryInterface gets latest position by uuid from storage.
 type CourierRepositoryInterface interface {
 	CourierLocationRepositoryInterface
 	GetLatestPositionCourierById(ctx context.Context, courierID string) (*CourierLocation, error)
 }
 
+// CourierLocationPublisherInterface publish message some systems.
 type CourierLocationPublisherInterface interface {
 	PublishLatestCourierGeoPosition(courierLocation *CourierLocation) error
 }
 
+// NewCourierService creates model currier location with current data.
 func NewCourierService(repo CourierLocationRepositoryInterface, publisher CourierLocationPublisherInterface) *CourierService {
 	return &CourierService{
 		courierRepository: repo,
@@ -41,6 +51,7 @@ func NewCourierService(repo CourierLocationRepositoryInterface, publisher Courie
 	}
 }
 
+// CourierLocation provides information about coords courier.
 type CourierLocation struct {
 	CourierID string    `json:"courier_id"`
 	Latitude  float64   `json:"latitude"`

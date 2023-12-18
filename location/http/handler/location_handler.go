@@ -4,7 +4,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/steteruk/go-delivery-service/location/domain"
 	pkghttp "github.com/steteruk/go-delivery-service/pkg/http"
-	"log"
 	"net/http"
 	"time"
 )
@@ -21,17 +20,18 @@ type LocationPayload struct {
 }
 
 type LocationHandler struct {
-	courierService domain.CourierLocationServiceInterface
-	httpHandler    pkghttp.HandlerInterface
+	courierLocationWorkerPool domain.CourierLocationWorkerPool
+	httpHandler               pkghttp.HandlerInterface
 }
 
-func NewLocationHandler(courierService domain.CourierLocationServiceInterface, handler pkghttp.HandlerInterface) *LocationHandler {
+func NewLocationHandler(courierLocationWorkerPool domain.CourierLocationWorkerPool, handler pkghttp.HandlerInterface) *LocationHandler {
 	return &LocationHandler{
-		courierService: courierService,
-		httpHandler:    handler,
+		courierLocationWorkerPool: courierLocationWorkerPool,
+		httpHandler:               handler,
 	}
 }
 
+// LatestLocationHandler handles request depending on location courier and validate query have valid payload and save data from payload in storage.
 func (h *LocationHandler) LatestLocationHandler(w http.ResponseWriter, r *http.Request) {
 	var locationPayload LocationPayload
 
@@ -49,7 +49,6 @@ func (h *LocationHandler) LatestLocationHandler(w http.ResponseWriter, r *http.R
 
 	vars := mux.Vars(r)
 	courierId := vars["courier_id"]
-	ctx := r.Context()
 	courierLocation := &domain.CourierLocation{
 		courierId,
 		locationPayload.Latitude,
@@ -57,14 +56,6 @@ func (h *LocationHandler) LatestLocationHandler(w http.ResponseWriter, r *http.R
 		time.Now(),
 	}
 
-	err := h.courierService.SaveLatestCourierLocation(ctx, courierLocation)
-	if err != nil {
-		log.Printf("failed to store latest courier position: %v", err)
-
-		h.httpHandler.FailResponse(w, err)
-
-		return
-	}
-
+	h.courierLocationWorkerPool.AddTask(courierLocation)
 	w.WriteHeader(http.StatusNoContent)
 }
