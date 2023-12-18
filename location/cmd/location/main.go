@@ -15,6 +15,7 @@ import (
 	"github.com/steteruk/go-delivery-service/location/kafka"
 	"github.com/steteruk/go-delivery-service/location/storage/postgres"
 	redisStorage "github.com/steteruk/go-delivery-service/location/storage/redis"
+	wp "github.com/steteruk/go-delivery-service/location/workerpool"
 	pkghttp "github.com/steteruk/go-delivery-service/pkg/http"
 	pkgkafka "github.com/steteruk/go-delivery-service/pkg/kafka"
 	pb "github.com/steteruk/go-delivery-service/proto/generate/location/v1"
@@ -25,11 +26,11 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 func main() {
 	config, err := env.GetConfig()
-	ctx := context.Background()
 	if err != nil {
 		log.Printf("Failed to parse variable env: %v\n", err)
 		return
@@ -60,14 +61,26 @@ func main() {
 	repoPostgres := postgres.NewCourierRepository(dbClient)
 
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go runHttpServer(ctx, config, &wg, courierService)
+	locationWorkerPool := wp.NewLocationPool(
+		courierService,
+		config.CourierLocationWorkerPoolCount,
+		config.CourierLocationQueueSizeTasks,
+		time.Duration(config.CourierLocationWorkerTimeoutGracefulShutdown),
+	)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	defer stop()
+
+	wg.Add(3)
+	go locationWorkerPool.Run(ctx, &wg)
+	go runHttpServer(ctx, config, &wg, locationWorkerPool)
 	go runGrpc(ctx, config, &wg, repoPostgres)
 	wg.Wait()
 }
 
-func runHttpServer(ctx context.Context, config env.Config, wg *sync.WaitGroup, courierService domain.CourierLocationServiceInterface) {
-	locationHandler := handler.NewLocationHandler(courierService, pkghttp.NewHandler())
+func runHttpServer(ctx context.Context, config env.Config, wg *sync.WaitGroup, locationWorkerPool domain.CourierLocationWorkerPool) {
+	locationHandler := handler.NewLocationHandler(locationWorkerPool, pkghttp.NewHandler())
 	var courierLocationURL = fmt.Sprintf(
 		"/courier/{courier_id:%s}/location",
 		"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}",
@@ -98,9 +111,7 @@ func runGrpc(ctx context.Context, config env.Config, wg *sync.WaitGroup, courier
 			log.Fatalf("failed to serve: %s", err)
 		}
 	}()
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-ctx.Done()
-	stop()
 	courierLocationServer.GracefulStop()
 	wg.Done()
 }
