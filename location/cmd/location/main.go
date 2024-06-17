@@ -10,7 +10,6 @@ import (
 	"github.com/steteruk/go-delivery-service/location/domain"
 	"github.com/steteruk/go-delivery-service/location/env"
 	server "github.com/steteruk/go-delivery-service/location/grpc"
-	"github.com/steteruk/go-delivery-service/location/http"
 	"github.com/steteruk/go-delivery-service/location/http/handler"
 	"github.com/steteruk/go-delivery-service/location/kafka"
 	"github.com/steteruk/go-delivery-service/location/storage/postgres"
@@ -93,7 +92,7 @@ func runHttpServer(ctx context.Context, config env.Config, wg *sync.WaitGroup, l
 	}
 
 	router := pkghttp.NewRoute(routes, mux.NewRouter())
-	http.ServerRun(ctx, router, config.PortServer)
+	pkghttp.ServerRun(ctx, router, config.PortServer)
 	wg.Done()
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 )
 
 var ErrCourierNotFound = errors.New("courier was not found")
@@ -20,7 +21,7 @@ type CourierWithLatestPosition struct {
 	IsAvailable    bool              `json:"is_available"`
 	LatestPosition *LocationPosition `json:"latest_position"`
 }
-type CourierClientInterface interface {
+type CourierClient interface {
 	GetLatestPosition(ctx context.Context, courierID string) (*LocationPosition, error)
 }
 
@@ -29,29 +30,45 @@ type LocationPosition struct {
 	Longitude float64 `json:"longitude"`
 }
 
-type CourierRepositoryInterface interface {
+type CourierRepository interface {
 	SaveNewCourier(ctx context.Context, courier *Courier) (*Courier, error)
 	GetCourierById(ctx context.Context, courierId string) (*Courier, error)
+	AssignOrderToCourier(ctx context.Context, orderID string) (CourierAssignment *CourierAssignment, err error)
 }
 
-type CourierService struct {
-	courierClient     CourierClientInterface
-	courierRepository CourierRepositoryInterface
+type CourierServiceManager struct {
+	courierClient            CourierClient
+	courierRepository        CourierRepository
+	orderValidationPublisher OrderValidationPublisher
 }
 
-type CourierServiceInterface interface {
+// OrderValidationPublisher publish order validation message in queue for order service.
+type OrderValidationPublisher interface {
+	PublishValidationResult(ctx context.Context, courierAssignment *CourierAssignment) error
+}
+
+// CourierAssignment has order assign courier
+type CourierAssignment struct {
+	OrderID   string    `json:"order_id"`
+	CourierID string    `json:"courier_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type CourierService interface {
 	GetCourierWithLatestPosition(ctx context.Context, courierId string) (*CourierWithLatestPosition, error)
 	SaveNewCourier(ctx context.Context, courier *Courier) (*Courier, error)
+	AssignOrderToCourier(ctx context.Context, orderID string) error
 }
 
-func NewCourierService(client CourierClientInterface, repo CourierRepositoryInterface) *CourierService {
-	return &CourierService{
-		courierClient:     client,
-		courierRepository: repo,
+func NewCourierService(client CourierClient, repo CourierRepository, orderValidationPublisher OrderValidationPublisher) *CourierServiceManager {
+	return &CourierServiceManager{
+		courierClient:            client,
+		courierRepository:        repo,
+		orderValidationPublisher: orderValidationPublisher,
 	}
 }
 
-func (s *CourierService) GetCourierWithLatestPosition(ctx context.Context, courierId string) (*CourierWithLatestPosition, error) {
+func (s *CourierServiceManager) GetCourierWithLatestPosition(ctx context.Context, courierId string) (*CourierWithLatestPosition, error) {
 	var locationPosition *LocationPosition
 
 	courier, err := s.courierRepository.GetCourierById(ctx, courierId)
@@ -78,6 +95,23 @@ func (s *CourierService) GetCourierWithLatestPosition(ctx context.Context, couri
 	}, nil
 }
 
-func (s *CourierService) SaveNewCourier(ctx context.Context, courier *Courier) (*Courier, error) {
+func (s *CourierServiceManager) SaveNewCourier(ctx context.Context, courier *Courier) (*Courier, error) {
 	return s.courierRepository.SaveNewCourier(ctx, courier)
+}
+
+// AssignOrderToCourier assign order to courier and send message in queue
+func (s *CourierServiceManager) AssignOrderToCourier(ctx context.Context, orderID string) error {
+
+	courierAssigment, err := s.courierRepository.AssignOrderToCourier(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to save a courier assigments in the repository: %w", err)
+	}
+
+	err = s.orderValidationPublisher.PublishValidationResult(ctx, courierAssigment)
+
+	if err != nil {
+		return fmt.Errorf("failed to publish a order message validation in kafka: %w", err)
+	}
+
+	return nil
 }

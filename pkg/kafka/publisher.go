@@ -1,16 +1,21 @@
 package kafka
 
 import (
+	"context"
 	"fmt"
+
 	"github.com/IBM/sarama"
 )
 
+// Publisher Async send message in kafka
 type Publisher struct {
 	producer sarama.AsyncProducer
 	topic    string
 }
 
+// NewPublisher Create new Publisher Async for sending in kafka
 func NewPublisher(address, topic string) (*Publisher, error) {
+	publisher := Publisher{}
 	config := sarama.NewConfig()
 	config.Producer.Partitioner = sarama.NewManualPartitioner
 	config.Producer.RequiredAcks = sarama.WaitForLocal
@@ -20,16 +25,29 @@ func NewPublisher(address, topic string) (*Publisher, error) {
 		return nil, fmt.Errorf("failed to create a new sarama async producer: %w", err)
 	}
 
-	return &Publisher{producer: producer, topic: topic}, nil
+	publisher.producer = producer
+	publisher.topic = topic
+
+	return &publisher, nil
 }
 
-func (p *Publisher) publish(message sarama.ProducerMessage) {
-	p.producer.Input() <- &message
+func (publisher *Publisher) publish(message sarama.ProducerMessage) {
+	publisher.producer.Input() <- &message
 }
 
-func (p *Publisher) PublishMessage(message []byte) {
-	p.publish(sarama.ProducerMessage{
-		Topic: p.topic,
+// PublishMessage  Send async message in kafka
+func (publisher *Publisher) PublishMessage(ctx context.Context, message []byte, key []byte) error {
+
+	messageKafka := sarama.ProducerMessage{
+		Topic: publisher.topic,
 		Value: sarama.StringEncoder(message),
-	})
+	}
+
+	if key != nil {
+		messageKafka.Key = sarama.StringEncoder(key)
+	}
+
+	publisher.publish(messageKafka)
+
+	return nil
 }
