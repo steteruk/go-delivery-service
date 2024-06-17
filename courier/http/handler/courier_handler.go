@@ -1,19 +1,20 @@
 package handler
 
 import (
+	"log"
+	"net/http"
+
 	"github.com/gorilla/mux"
 	"github.com/steteruk/go-delivery-service/courier/domain"
 	pkghttp "github.com/steteruk/go-delivery-service/pkg/http"
-	"log"
-	"net/http"
 )
 
 type CourierHandler struct {
-	courierService domain.CourierServiceInterface
+	courierService domain.CourierService
 	httpHandler    pkghttp.HandlerInterface
 }
 
-func NewCourierHandler(courierService domain.CourierServiceInterface, handler pkghttp.HandlerInterface) *CourierHandler {
+func NewCourierHandler(courierService domain.CourierService, handler pkghttp.HandlerInterface) *CourierHandler {
 	return &CourierHandler{
 		courierService: courierService,
 		httpHandler:    handler,

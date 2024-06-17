@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -153,7 +154,11 @@ func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for {
 		select {
-		case message := <-claim.Messages():
+		case message, ok := <-claim.Messages():
+			if !ok {
+				return errors.New("message channel was closed")
+			}
+
 			log.Printf("Message claimed: value = %s, timestamp = %v, topic = %s", string(message.Value), message.Timestamp, message.Topic)
 			err := consumer.jsonMessageHandler.HandleJSONMessage(session.Context(), message)
 
@@ -162,6 +167,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			}
 
 			session.MarkMessage(message, "")
+
 		case <-session.Context().Done():
 			return nil
 		}

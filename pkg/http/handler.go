@@ -11,13 +11,13 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// ErrDecodeFailed we return this error when we can not decode payload from http query
+// ErrDecodeFailed we return this error when we can not decode payload from http query.
 var ErrDecodeFailed = errors.New("failed to decode payload")
 
-// ErrValidatePayloadFailed throws this error when we have invalid payload
+// ErrValidatePayloadFailed throws this error when we have invalid payload.
 var ErrValidatePayloadFailed = errors.New("failed to validated payload")
 
-// ResponseMessage returns when we have bad request, or we have problem on server
+// ResponseMessage returns when we have bad request, or we have problem on server.
 type ResponseMessage struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
@@ -30,12 +30,12 @@ type HandlerInterface interface {
 	FailResponse(w nethttp.ResponseWriter, errFailResponse error)
 }
 
-// Handler abstract handler we can reuse it in different handlers
+// Handler abstract handler we can reuse it in different handlers.
 type Handler struct {
 	Validator *validator.Validate
 }
 
-// DecodePayloadFromJson decodes payload from body http query and handle exceptions scenarios
+// DecodePayloadFromJson decodes payload from body http query and handle exceptions scenarios.
 func (h *Handler) DecodePayloadFromJson(r *nethttp.Request, requestData any) error {
 	err := json.NewDecoder(r.Body).Decode(requestData)
 
@@ -48,7 +48,7 @@ func (h *Handler) DecodePayloadFromJson(r *nethttp.Request, requestData any) err
 	return nil
 }
 
-// SuccessResponse  Encodes response,that return user for http query and handle exceptions scenarios
+// SuccessResponse  Encodes response,that return user for http query and handle exceptions scenarios.
 func (h *Handler) SuccessResponse(w nethttp.ResponseWriter, requestData any, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(requestData)
@@ -56,32 +56,34 @@ func (h *Handler) SuccessResponse(w nethttp.ResponseWriter, requestData any, sta
 	if err != nil {
 		w.WriteHeader(nethttp.StatusInternalServerError)
 		log.Panicf("failed to encode json response: %v\n", err)
-
 	}
 
 	w.WriteHeader(status)
 }
 
-// ValidatePayload validates some payload from http query
+// ValidatePayload validates some payload from http query.
 func (h *Handler) ValidatePayload(payload any) error {
 	err := h.Validator.Struct(payload)
-
-	if err != nil {
-		var errorMessage string
-		for _, errStruct := range err.(validator.ValidationErrors) {
-			message := fmt.Sprintf("Incorrect Value %s %f", errStruct.StructField(), errStruct.Value())
-			errorMessage += message + ","
-		}
-
-		errorMessage = strings.Trim(errorMessage, ",")
-
-		return fmt.Errorf("%v:%w", errorMessage, ErrValidatePayloadFailed)
+	if err == nil {
+		return nil
 	}
 
-	return nil
+	var errorMessage string
+	if _, ok := err.(*validator.InvalidValidationError); ok {
+		return fmt.Errorf("an invalid value was received: %w", err)
+	}
+
+	for _, errStruct := range err.(validator.ValidationErrors) {
+		message := fmt.Sprintf("Incorrect Value %s %f", errStruct.StructField(), errStruct.Value())
+		errorMessage += message + ","
+	}
+
+	errorMessage = strings.Trim(errorMessage, ",")
+
+	return fmt.Errorf("%v:%w", errorMessage, ErrValidatePayloadFailed)
 }
 
-// FailResponse returns response for bad request
+// FailResponse returns response for bad request.
 func (h *Handler) FailResponse(w nethttp.ResponseWriter, errFailResponse error) {
 	w.Header().Set("Content-Type", "application/json")
 	switch true {
@@ -113,7 +115,7 @@ func (h *Handler) FailResponse(w nethttp.ResponseWriter, errFailResponse error) 
 	}
 }
 
-// NewHandler creates http handler for handling http requests
+// NewHandler creates http handler for handling http requests.
 func NewHandler() *Handler {
 	return &Handler{
 		Validator: validator.New(),
