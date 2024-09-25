@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/IBM/sarama"
+	"github.com/steteruk/go-delivery-service/avro/v1"
 	"github.com/steteruk/go-delivery-service/order/domain"
 	"log"
 )
+
+const OrderValidationsTopic = "order_validations.v1"
 
 // OrderConsumerValidation consumes message order validation from kafka
 type OrderConsumerValidation struct {
@@ -23,9 +25,7 @@ type OrderMessageValidation struct {
 }
 
 // NewOrderConsumerValidation creates order validation consumer
-func NewOrderConsumerValidation(
-	orderService domain.OrderService,
-) *OrderConsumerValidation {
+func NewOrderConsumerValidation(orderService domain.OrderService) *OrderConsumerValidation {
 	orderConsumer := &OrderConsumerValidation{
 		orderService: orderService,
 	}
@@ -33,19 +33,23 @@ func NewOrderConsumerValidation(
 	return orderConsumer
 }
 
-func (ocv *OrderConsumerValidation) HandleJSONMessage(ctx context.Context, message *sarama.ConsumerMessage) error {
-	var orderMessageValidation OrderMessageValidation
-	if err := json.Unmarshal(message.Value, &orderMessageValidation); err != nil {
+// HandleJSONMessage Handle kafka message in json format
+func (orderConsumerValidation *OrderConsumerValidation) HandleJSONMessage(ctx context.Context, message []byte) error {
+	orderValidationMessage := avro.NewOrderValidationMessage()
+	if err := orderValidationMessage.UnmarshalJSON(message); err != nil {
 		log.Printf("failed to unmarshal Kafka message into order validation struct: %v\n", err)
 
 		return nil
 	}
 
-	err := ocv.orderService.ValidateOrderForService(
+	orderValidationPayload := domain.OrderValidationPayload{
+		CourierID: orderValidationMessage.Payload.Courier_id.String,
+	}
+	err := orderConsumerValidation.orderService.ValidateOrderForService(
 		ctx,
-		orderMessageValidation.ServiceName,
-		orderMessageValidation.OrderID,
-		orderMessageValidation.Payload,
+		orderValidationMessage.Service_name,
+		orderValidationMessage.Order_id,
+		&orderValidationPayload,
 	)
 
 	if err != nil {

@@ -2,11 +2,13 @@ package kafka
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/steteruk/go-delivery-service/avro/v1"
 	"github.com/steteruk/go-delivery-service/order/domain"
 	pkgkafka "github.com/steteruk/go-delivery-service/pkg/kafka"
 )
+
+const OrderTopic = "orders.v1"
 
 // OrderPublisher publisher for kafka
 type OrderPublisher struct {
@@ -24,25 +26,27 @@ type OrderMessage struct {
 	Event        string       `json:"event"`
 }
 
-func NewOrderPublisher(publisher *pkgkafka.Publisher) domain.OrderPublisher {
-	return &OrderPublisher{publisher: publisher}
-}
-
-func (op *OrderPublisher) PublishOrder(ctx context.Context, order *domain.Order, event string) error {
-	messageOrder := OrderMessage{
-		Event: event,
-		OrderPayload: OrderPayload{
-			OrderID: order.ID,
-		},
+// NewOrderPublisher creates new publisher and init
+func NewOrderPublisher(publisher *pkgkafka.Publisher) *OrderPublisher {
+	orderPublisher := OrderPublisher{
+		publisher: publisher,
 	}
 
-	message, err := json.Marshal(messageOrder)
+	return &orderPublisher
+}
+
+func (orderPublisher *OrderPublisher) PublishOrder(ctx context.Context, order *domain.Order, event string) error {
+	orderMessage := avro.NewOrderMessage()
+	orderMessage.Payload.Order_id = order.ID
+	orderMessage.Event = event
+	message, err := orderMessage.MarshalJSON()
+	schema := orderMessage.Schema()
 
 	if err != nil {
 		return fmt.Errorf("failed to marshal order before sending Kafka event: %w", err)
 	}
 
-	err = op.publisher.PublishMessage(ctx, message, []byte(order.ID))
+	err = orderPublisher.publisher.PublishMessage(ctx, message, []byte(order.ID), schema)
 
 	if err != nil {
 		return fmt.Errorf("failed to publish order event: %w", err)

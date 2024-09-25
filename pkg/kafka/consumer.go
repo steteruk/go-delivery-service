@@ -2,8 +2,10 @@ package kafka
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/linkedin/goavro"
 	"log"
 	"os"
 	"os/signal"
@@ -14,21 +16,22 @@ import (
 	"github.com/IBM/sarama"
 )
 
-// JSONMessageHandler Handler jso message that sending in kafka
+// JSONMessageHandler Handler jso message that sending in kafka.
 type JSONMessageHandler interface {
-	HandleJSONMessage(ctx context.Context, message *sarama.ConsumerMessage) error
+	HandleJSONMessage(ctx context.Context, message []byte) error
 }
 
-// Consumer represents a Sarama consumer group consumer
+// Consumer represents a Sarama consumer group consumer.
 type Consumer struct {
-	keepRunning        bool
-	topic              string
-	jsonMessageHandler JSONMessageHandler
-	ready              chan bool
-	consumerGroup      sarama.ConsumerGroup
+	keepRunning          bool
+	topic                string
+	jsonMessageHandler   JSONMessageHandler
+	ready                chan bool
+	consumerGroup        sarama.ConsumerGroup
+	schemaRegistryClient *CachedSchemaRegistryClient
 }
 
-// NewConsumer Create new Consumer with specify consumer group
+// NewConsumer Create new Consumer with specify consumer group.
 func NewConsumer(
 	jsonMessageHandler JSONMessageHandler,
 	brokers string,
@@ -36,6 +39,7 @@ func NewConsumer(
 	oldest bool,
 	assignor string,
 	topic string,
+	kafkaSchemaRegistryAddress []string,
 ) (*Consumer, error) {
 	if verbose {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
@@ -68,17 +72,19 @@ func NewConsumer(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create courier location consumer: %w", err)
 	}
+	schemaRegistryClient := NewCachedSchemaRegistryClient(kafkaSchemaRegistryAddress)
 
 	return &Consumer{
-		consumerGroup:      consumerGroup,
-		keepRunning:        true,
-		ready:              make(chan bool),
-		topic:              topic,
-		jsonMessageHandler: jsonMessageHandler,
+		consumerGroup:        consumerGroup,
+		keepRunning:          true,
+		ready:                make(chan bool),
+		topic:                topic,
+		jsonMessageHandler:   jsonMessageHandler,
+		schemaRegistryClient: schemaRegistryClient,
 	}, nil
 }
 
-// ConsumeMessage Consume message in format json from kafka for specific consumer group
+// ConsumeMessage Consume message in format json from kafka for specific consumer group.
 func (consumer *Consumer) ConsumeMessage(ctx context.Context) error {
 	consumptionIsPaused := false
 	ctx, cancel := context.WithCancel(ctx)
@@ -145,7 +151,7 @@ func (consumer *Consumer) Setup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
+// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited.
 func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 	return nil
 }
@@ -160,7 +166,12 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			}
 
 			log.Printf("Message claimed: value = %s, timestamp = %v, topic = %s", string(message.Value), message.Timestamp, message.Topic)
-			err := consumer.jsonMessageHandler.HandleJSONMessage(session.Context(), message)
+			messageAvro, err := consumer.ProcessAvroMsg(message)
+			if err != nil {
+				return errors.New("message is not valid")
+			}
+
+			err = consumer.jsonMessageHandler.HandleJSONMessage(session.Context(), messageAvro)
 
 			if err != nil {
 				return err
@@ -184,4 +195,36 @@ func toggleConsumptionFlow(client sarama.ConsumerGroup, isPaused *bool) {
 	}
 
 	*isPaused = !*isPaused
+}
+
+// GetSchema get schema  from schema-registry service
+func (consumer *Consumer) GetSchema(id int) (*goavro.Codec, error) {
+	codec, err := consumer.schemaRegistryClient.GetSchema(id)
+	if err != nil {
+		return nil, err
+	}
+	return codec, nil
+}
+
+// ProcessAvroMsg decode value and prepare for unmarshal
+func (consumer *Consumer) ProcessAvroMsg(m *sarama.ConsumerMessage) ([]byte, error) {
+	schemaId := binary.BigEndian.Uint32(m.Value[1:5])
+	codec, err := consumer.GetSchema(int(schemaId))
+	if err != nil {
+		return nil, err
+	}
+	// Convert binary Avro data back to native Go form
+	native, _, err := codec.NativeFromBinary(m.Value[5:])
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert native Go form to textual Avro data
+	textual, err := codec.TextualFromNative(nil, native)
+
+	if err != nil {
+		return nil, err
+	}
+	msg := textual
+	return msg, nil
 }

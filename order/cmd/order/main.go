@@ -35,7 +35,7 @@ func main() {
 	defer clientPostgres.Close()
 
 	orderRepo := postgres.NewOrderRepository(clientPostgres)
-	publisher, err := pkgkafka.NewPublisher(config.AddrKafka, "orders")
+	publisher, err := pkgkafka.NewPublisher([]string{config.KafkaAddress}, []string{config.KafkaSchemaRegistryAddress}, kafka.OrderTopic)
 	if err != nil {
 		log.Printf("failed to create publisher: %v\n", err)
 		return
@@ -49,7 +49,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go runHttpServer(ctx, config, &wg, orderService)
-	go runOrderConsumer(ctx, config, &wg, orderService)
+	go runOrderConsumer(ctx, orderService, &wg, config)
 	wg.Wait()
 
 }
@@ -73,16 +73,17 @@ func runHttpServer(ctx context.Context, config env.Config, wg *sync.WaitGroup, o
 	pkghttp.ServerRun(ctx, router, config.PortServer)
 }
 
-func runOrderConsumer(ctx context.Context, config env.Config, wg *sync.WaitGroup, orderService domain.OrderService) {
+func runOrderConsumer(ctx context.Context, orderService domain.OrderService, wg *sync.WaitGroup, config env.Config) {
 	defer wg.Done()
 	orderConsumer := kafka.NewOrderConsumerValidation(orderService)
 	consumer, err := pkgkafka.NewConsumer(
 		orderConsumer,
-		config.AddrKafka,
+		config.KafkaAddress,
 		config.Verbose,
 		config.Oldest,
 		config.Assignor,
-		"order_validations",
+		kafka.OrderValidationsTopic,
+		[]string{config.KafkaSchemaRegistryAddress},
 	)
 
 	if err != nil {

@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -38,6 +37,11 @@ type OrderValidation struct {
 	CourierError       string
 }
 
+// OrderValidationPayload imagine payload for order validation for different services
+type OrderValidationPayload struct {
+	CourierID string
+}
+
 type OrderRepository interface {
 	SaveNewOrder(ctx context.Context, order *Order) (*Order, error)
 	GetOrderByID(ctx context.Context, orderID string) (*Order, error)
@@ -51,7 +55,7 @@ type OrderService interface {
 	GetOrderByID(ctx context.Context, orderID string) (*Order, error)
 	CreateOrder(ctx context.Context, order *Order) (*Order, error)
 	NewOrder(phoneNumber string) *Order
-	ValidateOrderForService(ctx context.Context, serviceName string, orderID string, validationInfo []byte) error
+	ValidateOrderForService(ctx context.Context, serviceName string, orderID string, orderValidationPayload *OrderValidationPayload) error
 }
 
 type OrderServiceManager struct {
@@ -109,7 +113,7 @@ func (s *OrderServiceManager) NewOrder(phoneNumber string) *Order {
 }
 
 // ValidateOrderForService updates order status and creates or saves order validation
-func (s *OrderServiceManager) ValidateOrderForService(ctx context.Context, serviceName string, orderID string, validationInfo []byte) error {
+func (s *OrderServiceManager) ValidateOrderForService(ctx context.Context, serviceName string, orderID string, orderValidationPayload *OrderValidationPayload) error {
 	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
 	if err != nil {
 		return fmt.Errorf("failed to get order: %w", err)
@@ -132,12 +136,7 @@ func (s *OrderServiceManager) ValidateOrderForService(ctx context.Context, servi
 
 	switch serviceName {
 	case "courier":
-		var courierPayload CourierPayload
-		if err := json.Unmarshal(validationInfo, &courierPayload); err != nil {
-			return fmt.Errorf("failed to unmarshal courier payload: %w", err)
-		}
-
-		order.CourierID = courierPayload.CourierID
+		order.CourierID = orderValidationPayload.CourierID
 		orderValidation.CourierValidatedAt = time.Now()
 		isCourierUpdateInOrder = true
 	}

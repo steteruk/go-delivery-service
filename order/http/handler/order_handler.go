@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"log"
+	"net/http"
+
 	"github.com/gorilla/mux"
 	"github.com/steteruk/go-delivery-service/order/domain"
 	pkghttp "github.com/steteruk/go-delivery-service/pkg/http"
-	"log"
-	"net/http"
 )
 
 type OrderHandler struct {

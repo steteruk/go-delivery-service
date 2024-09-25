@@ -5,9 +5,10 @@ import (
 )
 
 type Config struct {
-	AddrKafka                                    string `env:"KAFKA_BROKERS" envDefault:"localhost:9092"`
+	KafkaAddress                                 string `env:"KAFKA_BROKERS" envDefault:"localhost:9092"`
+	KafkaSchemaRegistryAddress                   string `env:"KAFKA_SCHEMA_REGISTRY_ADDRESS" envDefault:"http://localhost:8085"`
 	AddrRedis                                    string `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
-	PortServer                                   string `env:"PORT_SERVER" envDefault:":8888"`
+	PortServer                                   string `env:"PORT_SERVER" envDefault:":8889"`
 	NumberDbRedis                                int    `env:"NUMBER_DB_REDIS" envDefault:"0"`
 	Assignor                                     string `env:"KAFKA_CONSUMER_ASSIGNOR" envDefault:"range"`
 	Oldest                                       bool   `env:"KAFKA_CONSUMER_OLDEST" envDefault:"true"`
@@ -15,7 +16,7 @@ type Config struct {
 	DbName                                       string `env:"POSTGRES_DB" envDefault:"courier_location"`
 	DbPassword                                   string `env:"POSTGRES_PASSWORD" envDefault:"S3cret"`
 	DbUser                                       string `env:"POSTGRES_USER" envDefault:"citizix_user"`
-	CourierLatestPositionGrpcPort                string `env:"COURIER_GRPC_PORT" envDefault:":9666"`
+	CourierLatestPositionGrpcPort                string `env:"COURIER_GRPC_PORT" envDefault:":9667"`
 	CourierLocationQueueSizeTasks                int    `env:"COURIER_LOCATION_QUEUE_SIZE_TASKS" envDefault:"10000"`
 	CourierLocationWorkerPoolCount               int    `env:"COURIER_LOCATION_WORKER_POOL_COUNT" envDefault:"10"`
 	CourierLocationWorkerTimeoutGracefulShutdown int    `env:"COURIER_LOCATION_WORKER_TIMEOUT_GRACEFUL_SHUTDOWN" envDefault:"30"`

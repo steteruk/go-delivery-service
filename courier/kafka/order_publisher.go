@@ -2,14 +2,14 @@ package kafka
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/steteruk/go-delivery-service/avro/v1"
 
 	"github.com/steteruk/go-delivery-service/courier/domain"
 	pkgkafka "github.com/steteruk/go-delivery-service/pkg/kafka"
 )
 
-const OrderTopicValidation = "order_validations"
+const OrderTopicValidation = "order_validations.v1"
 
 // OrderValidationPublisher publisher for kafka
 type OrderValidationPublisher struct {
@@ -40,25 +40,24 @@ func NewOrderValidationPublisher(publisher *pkgkafka.Publisher) *OrderValidation
 
 // PublishValidationResult sends order message in json format in Kafka.
 func (orderPublisher *OrderValidationPublisher) PublishValidationResult(ctx context.Context, courierAssigment *domain.CourierAssignment) error {
-	messageOrderValidation := OrderMessageValidation{
-		IsSuccessful: true,
-		ServiceName:  "courier",
-		OrderID:      courierAssigment.OrderID,
-		Payload: CourierPayload{
-			CourierID: courierAssigment.CourierID,
-		},
-	}
+	orderValidationMessage := avro.NewOrderValidationMessage()
+	orderValidationMessage.Order_id = courierAssigment.OrderID
+	orderValidationMessage.Service_name = "courier"
+	orderValidationMessage.Is_successful = true
+	orderValidationMessage.Payload.Courier_id.String = courierAssigment.CourierID
+	orderValidationMessage.Payload.Courier_id.Null = nil
 
-	message, err := json.Marshal(messageOrderValidation)
+	message, err := orderValidationMessage.MarshalJSON()
 
 	if err != nil {
 		return fmt.Errorf("failed to marshal order message validation before sending Kafka event: %w", err)
 	}
 
-	err = orderPublisher.publisher.PublishMessage(ctx, message, []byte(courierAssigment.OrderID))
+	schema := orderValidationMessage.Schema()
+	err = orderPublisher.publisher.PublishMessage(ctx, message, []byte(courierAssigment.OrderID), schema)
 
 	if err != nil {
-		return fmt.Errorf("failed to publish order event: %w", err)
+		return fmt.Errorf("failed to publish order message validation event: %w", err)
 	}
 
 	return nil
