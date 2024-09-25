@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "OrderValidationMessage",
+  "doc": "this event describes result validation from different services and accepts order if we pass validation",
+  "fields": [
+    {"name": "order_id", "type": "string", "logicalType": "UUID"},
+    {"name": "service_name", "type": "string"},
+    {"name": "created_at", "type": {"type":"long", "logicalType":"timestamp-millis"}},
+    {"name": "is_successful", "type": "boolean"},
+    {
+      "name": "Payload",
+      "type": {
+        "type": "record",
+        "name": "PayloadMessageValidation",
+        "fields": [
+          {
+            "name": "courier_id", "type": [{"type": "string", "logicalType": "uuid"}, "null"]
+          }
+        ]
+      }
+    }
+  ]
+}

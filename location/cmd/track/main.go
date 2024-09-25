@@ -30,11 +30,12 @@ func main() {
 	courierLocationConsumer := kafka.NewCourierLocationConsumer(courierRepo)
 	consumer, err := pkgkafka.NewConsumer(
 		courierLocationConsumer,
-		config.AddrKafka,
+		config.KafkaAddress,
 		config.Verbose,
 		config.Oldest,
 		config.Assignor,
-		"latest_position_courier",
+		kafka.LatestPositionCourierTopic,
+		[]string{config.KafkaSchemaRegistryAddress},
 	)
 
 	if err != nil {

@@ -40,7 +40,7 @@ type CourierRepositoryInterface interface {
 
 // CourierLocationPublisherInterface publish message some systems.
 type CourierLocationPublisherInterface interface {
-	PublishLatestCourierGeoPosition(courierLocation *CourierLocation) error
+	PublishLatestCourierLocation(ctx context.Context, courierLocation *CourierLocation) error
 }
 
 // NewCourierService creates model currier location with current data.
@@ -64,7 +64,7 @@ func (cs *CourierService) SaveLatestCourierLocation(ctx context.Context, courier
 	if err != nil {
 		return fmt.Errorf("failed to store latest courier location in the repository: %w", err)
 	}
-	err = cs.courierPublisher.PublishLatestCourierGeoPosition(courierLocation)
+	err = cs.courierPublisher.PublishLatestCourierLocation(ctx, courierLocation)
 
 	if err != nil {
 		return fmt.Errorf("failed to publish latest courier location: %w", err)

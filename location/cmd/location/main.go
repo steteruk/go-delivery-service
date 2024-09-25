@@ -35,7 +35,8 @@ func main() {
 		return
 	}
 
-	publisher, err := pkgkafka.NewPublisher(config.AddrKafka, "latest_position_courier")
+	publisher, err := pkgkafka.NewPublisher([]string{config.KafkaAddress}, []string{config.KafkaSchemaRegistryAddress}, kafka.LatestPositionCourierTopic)
+
 	if err != nil {
 		log.Printf("failed to create publisher: %v\n", err)
 		return

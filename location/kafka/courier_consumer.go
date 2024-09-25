@@ -2,11 +2,11 @@ package kafka
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/IBM/sarama"
+	"github.com/steteruk/go-delivery-service/avro/v1"
 	"github.com/steteruk/go-delivery-service/location/domain"
 	"log"
+	"time"
 )
 
 type CourierLocationConsumer struct {
@@ -21,16 +21,25 @@ func NewCourierLocationConsumer(
 	}
 }
 
-func (c *CourierLocationConsumer) HandleJSONMessage(ctx context.Context, message *sarama.ConsumerMessage) error {
+// HandleJSONMessage Handle kafka message in json format
+func (courierLocationConsumer *CourierLocationConsumer) HandleJSONMessage(ctx context.Context, message []byte) error {
+	latestCourierLocationMessage := avro.NewLatestCourierLocationMessage()
 	var courierLocation domain.CourierLocation
-
-	if err := json.Unmarshal(message.Value, &courierLocation); err != nil {
+	if err := latestCourierLocationMessage.UnmarshalJSON(message); err != nil {
 		log.Printf("failed to unmarshal Kafka message into courier location struct: %v\n", err)
 
 		return nil
 	}
 
-	err := c.courierLocationRepository.SaveLatestCourierGeoPosition(ctx, &courierLocation)
+	time := time.Unix(latestCourierLocationMessage.Created_at, 0)
+	courierLocation = domain.CourierLocation{
+		CourierID: latestCourierLocationMessage.Courier_id,
+		Latitude:  latestCourierLocationMessage.Latitude,
+		Longitude: latestCourierLocationMessage.Longitude,
+		CreatedAt: time,
+	}
+
+	err := courierLocationConsumer.courierLocationRepository.SaveLatestCourierGeoPosition(ctx, &courierLocation)
 
 	if err != nil {
 		return fmt.Errorf("failed to save a courier location in the repository: %w", err)
