@@ -1,6 +1,7 @@
 /.idea
 /location/bilds
 /courier/bilds
+/order/bilds
 /docker-compose.yaml
 /order/.idea
 /courier/.idea
