@@ -6,7 +6,8 @@ require (
 	github.com/caarlos0/env/v9 v9.0.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
-	google.golang.org/grpc v1.67.0
+	github.com/steteruk/go-delivery-service v0.0.0-20241104091954-aa261d2f751d
+	google.golang.org/grpc v1.67.1
 )
 
 require (
@@ -34,7 +35,6 @@ require (
 	github.com/linkedin/goavro v2.1.0+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
-	github.com/steteruk/go-delivery-service v0.0.0-20240925172826-42c818340bb7 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
