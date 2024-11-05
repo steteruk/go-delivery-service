@@ -1,6 +1,6 @@
 module github.com/steteruk/go-delivery-service/pkg
 
-go 1.21.4
+go 1.22.8
 
 require (
 	github.com/IBM/sarama v1.43.3

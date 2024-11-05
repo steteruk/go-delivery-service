@@ -76,8 +76,12 @@ github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 h1:N/ElC8H3+5X
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/redis/go-redis/v9 v9.7.0 h1:HhLSs+B6O021gwzl+locl0zEDnyNkxMtf/Z3NNBMa9E=
 github.com/redis/go-redis/v9 v9.7.0/go.mod h1:f6zhXITC7JUJIlPEiBOTXxJgPLdZcA93GewI7inzyWw=
-github.com/steteruk/go-delivery-service v0.0.0-20241104091954-aa261d2f751d h1:jQK89pHk4rBaJ7wwXHZQp1BP0VrB3LbpbBGcFEpegiI=
-github.com/steteruk/go-delivery-service v0.0.0-20241104091954-aa261d2f751d/go.mod h1:fsvsRPktvnQvYCSa13iAGGYHZEX/tcMr13GM4oupEYo=
+github.com/steteruk/go-delivery-service v0.0.0-20241104211557-2ca74a5ee188 h1:vWxLw5RbAbRdORP9UPB4Ll9wfOOAXxhJ05A/mcBap8Y=
+github.com/steteruk/go-delivery-service v0.0.0-20241104211557-2ca74a5ee188/go.mod h1:fsvsRPktvnQvYCSa13iAGGYHZEX/tcMr13GM4oupEYo=
+github.com/steteruk/go-delivery-service/avro v0.0.0-20241104211557-2ca74a5ee188 h1:kegrzE2AyDYguQV7P5Zx9VanEKMSlL9wXjDUQmpZDL4=
+github.com/steteruk/go-delivery-service/avro v0.0.0-20241104211557-2ca74a5ee188/go.mod h1:PHyG3CYs+sX6ok9B38v3jVcKHQoTtbbpAj1aPy+SQoU=
+github.com/steteruk/go-delivery-service/pkg v0.0.0-20241104211557-2ca74a5ee188 h1:nIb2kmj7xEZu71U9WeRJIvKugb650ZGWh8jrChNTU/I=
+github.com/steteruk/go-delivery-service/pkg v0.0.0-20241104211557-2ca74a5ee188/go.mod h1:iJa5ga/m045u51AvzT79yfzVFlnC/Syiozt9rUJN7kU=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=

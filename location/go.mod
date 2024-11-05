@@ -1,13 +1,15 @@
 module github.com/steteruk/go-delivery-service/location
 
-go 1.21.4
+go 1.22.8
 
 require (
 	github.com/caarlos0/env/v9 v9.0.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
 	github.com/redis/go-redis/v9 v9.7.0
-	github.com/steteruk/go-delivery-service v0.0.0-20241104091954-aa261d2f751d
+	github.com/steteruk/go-delivery-service v0.0.0-20241104211557-2ca74a5ee188
+	github.com/steteruk/go-delivery-service/avro v0.0.0-20241104211557-2ca74a5ee188
+	github.com/steteruk/go-delivery-service/pkg v0.0.0-20241104211557-2ca74a5ee188
 	google.golang.org/grpc v1.67.1
 )
 
@@ -44,5 +46,4 @@ require (
 	golang.org/x/text v0.17.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/linkedin/goavro.v1 v1.0.5 // indirect
 )
